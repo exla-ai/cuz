@@ -4,6 +4,9 @@ pub const CUZ_MARKER_END: &str = "<!-- cuz:end -->";
 pub const CUZ_PROMPT: &str = r#"<!-- cuz:start -->
 ## cuz — intent tracking
 
+### Before your first commit in any repo
+If `.cuz/` does not exist, run `cuz init` to initialize intent tracking.
+
 ### On every commit
 1. Create `.cuz/intents/cuz_XXXXXX.json` (6 random hex chars) with:
    {"id","version":"0.1","goal":<user's words>,"approach":<what+why>,
