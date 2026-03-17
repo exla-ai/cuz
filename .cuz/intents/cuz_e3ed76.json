@@ -1,0 +1,17 @@
+{
+  "id": "cuz_e3ed76",
+  "version": "0.1",
+  "goal": "Make Claude auto-init .cuz/ in any repo",
+  "approach": "Added instruction to CLAUDE.md prompt: 'Before your first commit in any repo, if .cuz/ does not exist, run cuz init'. This removes the need for users to manually run cuz init in each repo — Claude handles it automatically.",
+  "alternatives": [
+    {"option": "Auto-init in the verify hook", "rejected_because": "Hook runs after commit, too late. Better to have Claude do it proactively before first commit."}
+  ],
+  "context_files": ["src/prompt.rs"],
+  "files_modified": ["src/prompt.rs"],
+  "confidence": 0.95,
+  "token_cost": 5000,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T09:00:00Z"
+}

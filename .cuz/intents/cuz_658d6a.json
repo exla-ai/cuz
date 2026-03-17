@@ -1,0 +1,17 @@
+{
+  "id": "cuz_658d6a",
+  "version": "0.1",
+  "goal": "Make install dead simple — brew tap + brew install and done",
+  "approach": "Simplified README to just show brew tap/install. Added real SHA256 hashes to Homebrew formula from v0.1.0 release assets. Created exla-ai/homebrew-cuz tap repo with the formula so brew tap actually works.",
+  "alternatives": [
+    {"option": "Keep detailed README with data model docs", "rejected_because": "User wanted a simple 'just works' README, not a technical spec"}
+  ],
+  "context_files": ["README.md", "Formula/cuz.rb"],
+  "files_modified": ["README.md", "Formula/cuz.rb"],
+  "confidence": 0.97,
+  "token_cost": 8000,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T09:10:00Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "cuz_b4cf11",
+  "version": "0.1",
+  "goal": "Backfill intent history for the cuz repo itself",
+  "approach": "Created intent records for all 6 existing commits retroactively, capturing the reasoning behind each change so cuz eats its own dogfood. Intent IDs derived from commit SHA prefixes for traceability.",
+  "alternatives": [
+    {"option": "Rewrite git history to add trailers to each commit", "rejected_because": "Force-push rewrites are destructive and the release tag already exists"}
+  ],
+  "context_files": [],
+  "files_modified": [
+    ".cuz/intents/cuz_820e5b.json", ".cuz/intents/cuz_03e3bd.json",
+    ".cuz/intents/cuz_eef875.json", ".cuz/intents/cuz_097849.json",
+    ".cuz/intents/cuz_e3ed76.json", ".cuz/intents/cuz_658d6a.json"
+  ],
+  "confidence": 0.90,
+  "token_cost": 10000,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T09:20:00Z"
+}
