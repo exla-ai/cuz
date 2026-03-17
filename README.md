@@ -1,6 +1,4 @@
 [![CI](https://github.com/exla-ai/cuz/actions/workflows/ci.yml/badge.svg)](https://github.com/exla-ai/cuz/actions/workflows/ci.yml)
-[![phase: 1](https://img.shields.io/badge/phase-1%20%E2%80%93%20core%20CLI-22c55e)](https://github.com/exla-ai/cuz)
-[![intent coverage](https://img.shields.io/badge/intent%20coverage-ready-22c55e)](https://github.com/exla-ai/cuz)
 
 # cuz
 
@@ -17,19 +15,27 @@ brew install exla-ai/cuz/cuz
 That's it. No setup step. Brew post-install automatically:
 - Patches `~/.claude/CLAUDE.md` with intent tracking instructions
 - Installs a PostToolUse hook in `~/.claude/settings.json`
-- Initializes `.cuz/` in your current repo (if inside one)
 
-## Usage
+Then `cuz init` in any repo to start tracking.
+
+## Commands
 
 ```sh
-# Why does this line exist?
-cuz why src/payments/retry.ts:42
-
-# Show intent history
-cuz log
-
-# Check tracking coverage
-cuz status
+cuz init                          # Initialize .cuz/ in current repo
+cuz why src/retry.ts:42           # Why does this line exist?
+cuz show cuz_8f3a1b               # Show full details of an intent
+cuz search "retry"                # Search intents by keyword
+cuz log                           # Show intent history (tree view)
+cuz log --json                    # Machine-readable output
+cuz status                        # Coverage stats + progress bar
+cuz cost                          # Token usage across intents
+cuz diff                          # Show intents for changed files
+cuz diff --cached                 # Show intents for staged files
+cuz parent start "migrate to gRPC"  # Start multi-session goal
+cuz parent show                   # Show active parent
+cuz parent end                    # End active parent
+cuz setup                         # Re-run Claude Code integration
+cuz teardown                      # Remove from Claude Code (keeps data)
 ```
 
 ## How it works
@@ -38,17 +44,18 @@ cuz status
 2. **An `Intent: cuz_XXXXXX` trailer** in the commit message links the commit to its reasoning
 3. **`cuz why`** follows git blame to find the intent behind any line of code — walking history if the direct commit lacks a trailer
 4. **Before modifying code**, Claude reads existing intents to understand why code exists and what was already rejected
+5. **`cuz verify`** runs as a PostToolUse hook — warns Claude (never blocks) when a commit is missing its intent trailer
 
 ## Data model
 
 ```
 .cuz/
   intents/
-    cuz_8f3a1b.json     # intent records (reasoning)
+    cuz_8f3a1b.json          # intent records (reasoning)
   parents/
-    cuz_parent_f1a2b3.json  # multi-session parent intents
-  active_parent          # current parent intent ID
-  schema.json            # schema version
+    cuz_parent_f1a2b3.json   # multi-session parent intents
+  active_parent               # current parent intent ID
+  schema.json                 # schema version
 ```
 
 Intent records contain:
@@ -59,12 +66,10 @@ Intent records contain:
 - **token_cost** — approximate tokens used
 - **parent_intent** — links to multi-session goals
 
-## Phase 1 status
+## Uninstall
 
-- [x] Core CLI (`setup`, `verify`, `why`, `log`, `status`)
-- [x] CLAUDE.md injection (idempotent, marker-based)
-- [x] PostToolUse hook (fast bail, never blocks Claude)
-- [x] Git trailer parsing + blame history walking
-- [x] 29 tests passing (16 unit + 13 integration)
-- [x] CI + release workflows
-- [x] Homebrew formula
+```sh
+cuz teardown        # removes Claude Code integration
+brew uninstall cuz  # removes the binary
+# .cuz/ directories in repos are left intact (it's just data)
+```

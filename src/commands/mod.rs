@@ -1,5 +1,12 @@
+pub mod cost;
+pub mod diff;
+pub mod init;
 pub mod log;
+pub mod parent;
+pub mod search;
 pub mod setup;
+pub mod show;
 pub mod status;
+pub mod teardown;
 pub mod verify;
 pub mod why;
