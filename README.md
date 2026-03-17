@@ -4,72 +4,48 @@
 
 Give every piece of code a traceable reason for existing.
 
-cuz injects into Claude Code so that every commit automatically captures *why* the change was made — not just what changed. A companion CLI makes that reasoning queryable, traceable, and permanent.
-
-## Install
+## Get started
 
 ```sh
-brew install exla-ai/cuz/cuz
+brew tap exla-ai/cuz
+brew install cuz
 ```
 
-That's it. No setup step. Brew post-install automatically:
-- Patches `~/.claude/CLAUDE.md` with intent tracking instructions
-- Installs a PostToolUse hook in `~/.claude/settings.json`
+That's it. Every Claude Code session will now automatically track *why* changes are made — not just what changed. No config, no setup, no per-repo init needed.
 
-Then `cuz init` in any repo to start tracking.
+## What happens
 
-## Commands
+After install, Claude Code will:
+
+1. Run `cuz init` in any repo it works in (auto, first commit only)
+2. Create a `.cuz/intents/cuz_XXXXXX.json` for every commit — recording the goal, approach, alternatives considered, and confidence
+3. Add an `Intent: cuz_XXXXXX` trailer to each commit message
+4. Read existing intents before modifying code, so it knows why things are the way they are
+
+## Query it
 
 ```sh
-cuz init                          # Initialize .cuz/ in current repo
-cuz why src/retry.ts:42           # Why does this line exist?
-cuz show cuz_8f3a1b               # Show full details of an intent
-cuz search "retry"                # Search intents by keyword
-cuz log                           # Show intent history (tree view)
-cuz log --json                    # Machine-readable output
-cuz status                        # Coverage stats + progress bar
-cuz cost                          # Token usage across intents
-cuz diff                          # Show intents for changed files
-cuz diff --cached                 # Show intents for staged files
-cuz parent start "migrate to gRPC"  # Start multi-session goal
-cuz parent show                   # Show active parent
-cuz parent end                    # End active parent
-cuz setup                         # Re-run Claude Code integration
-cuz teardown                      # Remove from Claude Code (keeps data)
+cuz why src/retry.ts:42       # why does this line exist?
+cuz log                        # intent history
+cuz search "backoff"           # find intents by keyword
+cuz show cuz_8f3a1b            # full details of an intent
+cuz status                     # coverage stats
+cuz cost                       # token usage
+cuz diff                       # intents for changed files
 ```
 
-## How it works
+## Multi-session work
 
-1. **On every commit**, Claude Code creates a `.cuz/intents/cuz_XXXXXX.json` recording the goal, approach, alternatives considered, and confidence level
-2. **An `Intent: cuz_XXXXXX` trailer** in the commit message links the commit to its reasoning
-3. **`cuz why`** follows git blame to find the intent behind any line of code — walking history if the direct commit lacks a trailer
-4. **Before modifying code**, Claude reads existing intents to understand why code exists and what was already rejected
-5. **`cuz verify`** runs as a PostToolUse hook — warns Claude (never blocks) when a commit is missing its intent trailer
-
-## Data model
-
+```sh
+cuz parent start "migrate to gRPC"   # group intents under a goal
+# ... work across multiple sessions ...
+cuz parent end                        # close it out
 ```
-.cuz/
-  intents/
-    cuz_8f3a1b.json          # intent records (reasoning)
-  parents/
-    cuz_parent_f1a2b3.json   # multi-session parent intents
-  active_parent               # current parent intent ID
-  schema.json                 # schema version
-```
-
-Intent records contain:
-- **goal** — what the user asked for, in their words
-- **approach** — what was done and why
-- **alternatives** — options considered and why they were rejected
-- **confidence** — 0–1 score
-- **token_cost** — approximate tokens used
-- **parent_intent** — links to multi-session goals
 
 ## Uninstall
 
 ```sh
-cuz teardown        # removes Claude Code integration
-brew uninstall cuz  # removes the binary
-# .cuz/ directories in repos are left intact (it's just data)
+cuz teardown && brew uninstall cuz
 ```
+
+Intent data in `.cuz/` stays in your repos — it's just committed JSON.
