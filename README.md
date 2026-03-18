@@ -2,7 +2,7 @@
 
 # cuz
 
-Give every piece of code a traceable reason for existing.
+Give every piece of code a traceable reason for existing — and understand the cost behind it.
 
 ## Get started
 
@@ -11,14 +11,14 @@ brew tap exla-ai/cuz
 brew install cuz
 ```
 
-That's it. Every Claude Code session will now automatically track *why* changes are made — not just what changed. No config, no setup, no per-repo init needed.
+That's it. Every Claude Code session will now automatically track *why* changes are made — not just what changed — and how much it cost in tokens. No config, no setup, no per-repo init needed.
 
 ## What happens
 
 After install, Claude Code will:
 
 1. Run `cuz init` in any repo it works in (auto, first commit only)
-2. Create a `.cuz/intents/cuz_XXXXXX.json` for every commit — recording the goal, approach, alternatives considered, and confidence
+2. Create a `.cuz/intents/cuz_XXXXXX.json` for every commit — recording the goal, approach, alternatives considered, confidence, and token cost
 3. Add an `Intent: cuz_XXXXXX` trailer to each commit message
 4. Read existing intents before modifying code, so it knows why things are the way they are
 

@@ -1,0 +1,15 @@
+{
+  "id": "cuz_41c3d8",
+  "version": "0.1",
+  "goal": "Add cost tracking mention to README",
+  "approach": "Updated tagline, get-started blurb, and what-happens list to mention token cost tracking as a key feature",
+  "alternatives": [],
+  "context_files": ["README.md"],
+  "files_modified": ["README.md"],
+  "confidence": 0.95,
+  "token_cost": null,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T00:00:00Z"
+}
