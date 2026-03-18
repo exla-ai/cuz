@@ -1,0 +1,17 @@
+{
+  "id": "cuz_e7f9a2",
+  "version": "0.1",
+  "goal": "Add release instructions and version badge so Claude knows when/how to cut releases",
+  "approach": "Created project CLAUDE.md with release checklist (bump Cargo.toml, update install.sh VERSION, tag, push). Added GitHub release version badge to README.",
+  "alternatives": [
+    {"option": "Put release instructions only in the README", "rejected_because": "CLAUDE.md is what Claude Code reads automatically; README is for humans"}
+  ],
+  "context_files": ["README.md", "Cargo.toml", "install.sh", ".github/workflows/release.yml"],
+  "files_modified": ["CLAUDE.md", "README.md"],
+  "confidence": 0.9,
+  "token_cost": null,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T18:30:00-07:00"
+}

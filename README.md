@@ -1,4 +1,5 @@
 [![CI](https://github.com/exla-ai/cuz/actions/workflows/ci.yml/badge.svg)](https://github.com/exla-ai/cuz/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/exla-ai/cuz)](https://github.com/exla-ai/cuz/releases/latest)
 
 # cuz
 
