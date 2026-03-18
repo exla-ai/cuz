@@ -1,0 +1,18 @@
+{
+  "id": "cuz_d4e8b1",
+  "version": "0.1",
+  "goal": "Make Claude reliably create intent records on every commit without manual reminding",
+  "approach": "Strengthened the injected CLAUDE.md prompt: added REQUIRED header, IMPORTANT block saying no exceptions, reworded steps to be explicit and imperative (BEFORE running git commit), numbered steps more clearly including staging the intent file explicitly.",
+  "alternatives": [
+    {"option": "Add a pre-commit hook that blocks commits without intents", "rejected_because": "Would break non-Claude workflows and manual commits"},
+    {"option": "Make the PostToolUse hook auto-generate intents", "rejected_because": "Hook can't know the goal/approach — only Claude has that context"}
+  ],
+  "context_files": ["src/prompt.rs", "src/commands/verify.rs", "src/commands/setup.rs"],
+  "files_modified": ["src/prompt.rs"],
+  "confidence": 0.85,
+  "token_cost": null,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T18:40:00-07:00"
+}

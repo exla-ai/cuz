@@ -2,24 +2,31 @@ pub const CUZ_MARKER_START: &str = "<!-- cuz:start -->";
 pub const CUZ_MARKER_END: &str = "<!-- cuz:end -->";
 
 pub const CUZ_PROMPT: &str = r#"<!-- cuz:start -->
-## cuz — intent tracking
+## cuz — intent tracking (REQUIRED)
+
+IMPORTANT: You MUST create an intent record for EVERY commit. No exceptions. This is not optional.
 
 ### Before your first commit in any repo
 If `.cuz/` does not exist, run `cuz init` to initialize intent tracking.
 
-### On every commit
-1. Create `.cuz/intents/cuz_XXXXXX.json` (6 random hex chars) with:
-   {"id","version":"0.1","goal":<user's words>,"approach":<what+why>,
-    "alternatives":[{"option","rejected_because"}],
-    "context_files","files_modified","confidence":0-1,
-    "token_cost","agent":"claude-code","model",
-    "parent_intent":<from .cuz/active_parent or null>,"timestamp"}
-2. Stage `.cuz/` files in the commit
-3. Add `Intent: cuz_XXXXXX` as a trailer (after blank line) in commit message
-4. If `.cuz/active_parent` exists, set parent_intent to its contents
+### On EVERY commit — do this BEFORE running git commit
+1. Generate a random 6-hex-char ID (e.g. cuz_a3f1b2)
+2. Create `.cuz/intents/cuz_XXXXXX.json` with this exact schema:
+   {"id":"cuz_XXXXXX","version":"0.1","goal":<user's words — what they asked for>,
+    "approach":<what you did and why>,
+    "alternatives":[{"option":<other approach>,"rejected_because":<reason>}],
+    "context_files":[<files you read>],"files_modified":[<files in this commit>],
+    "confidence":<0-1>,"token_cost":null,"agent":"claude-code",
+    "model":<your model name>,
+    "parent_intent":<contents of .cuz/active_parent file, or null>,
+    "timestamp":<ISO 8601>}
+3. Stage the intent file: `git add .cuz/intents/cuz_XXXXXX.json`
+4. Include the intent file in the same commit
+5. Add `Intent: cuz_XXXXXX` as a git trailer in the commit message (after a blank line, at the end)
+6. If `.cuz/active_parent` exists, read it and set parent_intent to its contents
 
 ### Before modifying existing code
-If `.cuz/intents/` exists, check git log for Intent: trailers on files you're changing.
+If `.cuz/intents/` exists, check `git log` for `Intent:` trailers on files you're changing.
 Read those intents to understand why code exists and what was already rejected.
 If contradicting a previous intent, explain why in your new intent record.
 <!-- cuz:end -->"#;
