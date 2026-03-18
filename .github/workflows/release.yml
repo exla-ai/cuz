@@ -49,15 +49,3 @@ jobs:
           files: "*.tar.gz"
           generate_release_notes: true
 
-  update-formula:
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: cuz-aarch64-apple-darwin
-      - name: Update formula SHA
-        run: |
-          SHA=$(shasum -a 256 cuz-aarch64-apple-darwin.tar.gz | cut -d ' ' -f 1)
-          echo "SHA256: $SHA"

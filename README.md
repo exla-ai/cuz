@@ -7,8 +7,7 @@ Give every piece of code a traceable reason for existing — and understand the 
 ## Get started
 
 ```sh
-brew tap exla-ai/cuz
-brew install cuz
+curl -sSL https://raw.githubusercontent.com/exla-ai/cuz/main/install.sh | sh
 ```
 
 That's it. Every Claude Code session will now automatically track *why* changes are made — not just what changed — and how much it cost in tokens. No config, no setup, no per-repo init needed.
@@ -45,7 +44,7 @@ cuz parent end                        # close it out
 ## Uninstall
 
 ```sh
-cuz teardown && brew uninstall cuz
+cuz teardown && sudo rm /usr/local/bin/cuz
 ```
 
 Intent data in `.cuz/` stays in your repos — it's just committed JSON.

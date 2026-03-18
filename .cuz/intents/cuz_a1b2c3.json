@@ -1,0 +1,18 @@
+{
+  "id": "cuz_a1b2c3",
+  "version": "0.1",
+  "goal": "Replace Homebrew install with a curl | sh one-liner so users can actually install cuz",
+  "approach": "Created install.sh that detects OS/arch, downloads the right release binary, falls back to ~/.local/bin if /usr/local/bin needs sudo, and runs cuz setup. Removed Formula/ dir and update-formula CI job since brew is no longer the install method.",
+  "alternatives": [
+    {"option": "Keep brew and fix post_install permissions", "rejected_because": "brew sandboxes post_install so it can't write to ~/.claude/; no clean workaround"},
+    {"option": "Brew for binary + tell user to run cuz setup", "rejected_because": "User wants a single-command install with no manual steps"}
+  ],
+  "context_files": ["Formula/cuz.rb", "README.md", ".github/workflows/release.yml", "src/commands/setup.rs"],
+  "files_modified": ["install.sh", "README.md", ".github/workflows/release.yml", "Formula/cuz.rb"],
+  "confidence": 0.95,
+  "token_cost": null,
+  "agent": "claude-code",
+  "model": "claude-opus-4-6",
+  "parent_intent": null,
+  "timestamp": "2026-03-17T18:15:00-07:00"
+}
