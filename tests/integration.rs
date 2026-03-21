@@ -286,7 +286,23 @@ fn test_verify_commit_without_trailer() {
 #[test]
 fn test_verify_commit_with_trailer() {
     let repo = TestRepo::new();
-    repo.commit_with_intent("ok.txt", "ok\n", "cuz_eeeeee", "verify pass");
+    // Create intent WITH alternatives to avoid empty-alternatives warning
+    let intent = serde_json::json!({
+        "id": "cuz_eeeeee",
+        "version": "0.1",
+        "goal": "verify pass",
+        "approach": "test approach",
+        "alternatives": [{"option": "other way", "rejected_because": "not as good"}],
+        "files_modified": ["ok.txt"],
+        "timestamp": "2026-03-16T14:32:00Z"
+    });
+    fs::write(
+        repo.path().join(".cuz/intents/cuz_eeeeee.json"),
+        serde_json::to_string_pretty(&intent).unwrap(),
+    ).unwrap();
+    fs::write(repo.path().join("ok.txt"), "ok\n").unwrap();
+    run_in(repo.path(), "git", &["add", "."]);
+    run_in(repo.path(), "git", &["commit", "-m", "Add ok.txt\n\nIntent: cuz_eeeeee"]);
 
     let input = r#"{"tool_input":{"command":"git commit -m 'test'"}}"#;
     let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["verify"], input);
@@ -534,4 +550,317 @@ fn test_diff_with_changes() {
     let (stdout, _stderr, success) = run_cuz(repo.path(), &["diff"]);
     assert!(success);
     assert!(stdout.contains("1 changed file") || stdout.contains("changed file"));
+}
+
+// --- MCP server tests ---
+
+#[test]
+fn test_mcp_initialize() {
+    let repo = TestRepo::new();
+    let input = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["mcp", "serve"], input);
+    assert!(success);
+    let response: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(response["id"], 1);
+    assert!(response["result"]["serverInfo"]["name"] == "cuz");
+    assert!(response["result"]["capabilities"]["tools"].is_object());
+}
+
+#[test]
+fn test_mcp_tools_list() {
+    let repo = TestRepo::new();
+    let input = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#,
+        "\n",
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#
+    );
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["mcp", "serve"], input);
+    assert!(success);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert!(lines.len() >= 2, "Expected 2 responses, got: {:?}", lines);
+    let response: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    assert_eq!(response["id"], 2);
+    let tools = response["result"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 3);
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert!(names.contains(&"create_intent"));
+    assert!(names.contains(&"get_rejected"));
+    assert!(names.contains(&"get_intent"));
+}
+
+#[test]
+fn test_mcp_create_intent() {
+    let repo = TestRepo::new();
+    let input = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#,
+        "\n",
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_intent","arguments":{"goal":"test goal","approach":"test approach","alternatives":[{"option":"other","rejected_because":"not good"}],"files_modified":["src/main.rs"],"context_files":["src/lib.rs"],"confidence":0.9}}}"#
+    );
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["mcp", "serve"], input);
+    assert!(success);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert!(lines.len() >= 2);
+    let response: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    let text = response["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("Created intent cuz_"), "Expected intent creation message: {}", text);
+    assert!(text.contains("Intent: cuz_"), "Expected trailer in response: {}", text);
+}
+
+#[test]
+fn test_mcp_get_rejected() {
+    let repo = TestRepo::new();
+    // Create intent with alternatives
+    let intent = serde_json::json!({
+        "id": "cuz_aaa111",
+        "version": "0.1",
+        "goal": "fix retry logic",
+        "approach": "exponential backoff",
+        "alternatives": [
+            {"option": "circuit breaker", "rejected_because": "requires new dependency", "constraints": "no new deps allowed"},
+            {"option": "polling", "rejected_because": "too slow"}
+        ],
+        "files_modified": ["src/retry.rs"],
+        "timestamp": "2026-03-16T14:32:00Z"
+    });
+    fs::write(
+        repo.path().join(".cuz/intents/cuz_aaa111.json"),
+        serde_json::to_string_pretty(&intent).unwrap(),
+    ).unwrap();
+
+    let input = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#,
+        "\n",
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_rejected","arguments":{"file":"src/retry.rs"}}}"#
+    );
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["mcp", "serve"], input);
+    assert!(success);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert!(lines.len() >= 2);
+    let response: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    let text = response["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("circuit breaker"), "Expected circuit breaker: {}", text);
+    assert!(text.contains("polling"), "Expected polling: {}", text);
+    assert!(text.contains("no new deps allowed"), "Expected constraint: {}", text);
+}
+
+#[test]
+fn test_mcp_get_intent() {
+    let repo = TestRepo::new();
+    repo.commit_with_intent("gi.txt", "gi\n", "cuz_bbb222", "get intent test");
+
+    let input = concat!(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}"#,
+        "\n",
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_intent","arguments":{"id":"cuz_bbb222"}}}"#
+    );
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["mcp", "serve"], input);
+    assert!(success);
+    let lines: Vec<&str> = stdout.trim().lines().collect();
+    assert!(lines.len() >= 2);
+    let response: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    let text = response["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("cuz_bbb222"));
+    assert!(text.contains("get intent test"));
+}
+
+// --- Rejected command tests ---
+
+#[test]
+fn test_rejected_with_alternatives() {
+    let repo = TestRepo::new();
+    let intent = serde_json::json!({
+        "id": "cuz_rej111",
+        "version": "0.1",
+        "goal": "fix retry",
+        "approach": "backoff",
+        "alternatives": [
+            {"option": "circuit breaker", "rejected_because": "too complex", "constraints": "latency budget"}
+        ],
+        "files_modified": ["retry.rs"],
+        "timestamp": "2026-03-16T14:32:00Z"
+    });
+    fs::write(
+        repo.path().join(".cuz/intents/cuz_rej111.json"),
+        serde_json::to_string_pretty(&intent).unwrap(),
+    ).unwrap();
+
+    let (stdout, _stderr, success) = run_cuz(repo.path(), &["rejected", "retry.rs"]);
+    assert!(success);
+    assert!(stdout.contains("circuit breaker"), "Expected circuit breaker: {}", stdout);
+    assert!(stdout.contains("too complex"), "Expected rejection reason: {}", stdout);
+    assert!(stdout.contains("latency budget"), "Expected constraint: {}", stdout);
+}
+
+#[test]
+fn test_rejected_no_alternatives() {
+    let repo = TestRepo::new();
+    let (stdout, _stderr, success) = run_cuz(repo.path(), &["rejected", "nonexistent.rs"]);
+    assert!(success);
+    assert!(stdout.contains("No rejected alternatives"));
+}
+
+// --- Hook tests ---
+
+#[test]
+fn test_hook_pre_edit_with_alternatives() {
+    let repo = TestRepo::new();
+    let intent = serde_json::json!({
+        "id": "cuz_hook11",
+        "version": "0.1",
+        "goal": "hook test",
+        "approach": "test approach",
+        "alternatives": [
+            {"option": "bad approach", "rejected_because": "unstable"}
+        ],
+        "files_modified": ["src/main.rs"],
+        "timestamp": "2026-03-16T14:32:00Z"
+    });
+    fs::write(
+        repo.path().join(".cuz/intents/cuz_hook11.json"),
+        serde_json::to_string_pretty(&intent).unwrap(),
+    ).unwrap();
+
+    let input = r#"{"tool_name":"Edit","tool_input":{"file_path":"src/main.rs"}}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["hook", "pre-edit"], input);
+    assert!(success);
+    assert!(stdout.contains("WARNING"), "Expected warning: {}", stdout);
+    assert!(stdout.contains("bad approach"), "Expected alternative: {}", stdout);
+    assert!(stdout.contains("src/main.rs"), "Expected file path: {}", stdout);
+}
+
+#[test]
+fn test_hook_pre_edit_no_alternatives() {
+    let repo = TestRepo::new();
+    let input = r#"{"tool_name":"Edit","tool_input":{"file_path":"src/new.rs"}}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["hook", "pre-edit"], input);
+    assert!(success);
+    // No output when there are no rejected alternatives
+    assert!(stdout.is_empty() || !stdout.contains("WARNING"));
+}
+
+#[test]
+fn test_hook_stop_check_missing_trailer() {
+    let repo = TestRepo::new();
+    repo.commit_without_intent("stop.txt", "stop\n", "no trailer");
+
+    let input = r#"{}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["hook", "stop-check"], input);
+    assert!(success);
+    assert!(stdout.contains("block"), "Expected block decision: {}", stdout);
+    assert!(stdout.contains("Intent:"), "Expected mention of trailer: {}", stdout);
+}
+
+#[test]
+fn test_hook_stop_check_with_trailer() {
+    let repo = TestRepo::new();
+    repo.commit_with_intent("stop2.txt", "stop2\n", "cuz_stop22", "stop test");
+
+    let input = r#"{}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["hook", "stop-check"], input);
+    assert!(success);
+    assert!(!stdout.contains("block"), "Should not block: {}", stdout);
+}
+
+#[test]
+fn test_hook_stop_check_avoids_loop() {
+    let repo = TestRepo::new();
+    repo.commit_without_intent("loop.txt", "loop\n", "no trailer");
+
+    let input = r#"{"stop_hook_active": true}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["hook", "stop-check"], input);
+    assert!(success);
+    // Should NOT block when stop_hook_active is true (avoid infinite loop)
+    assert!(!stdout.contains("block"), "Should not block on re-entry: {}", stdout);
+}
+
+// --- Verify empty alternatives warning ---
+
+#[test]
+fn test_verify_warns_empty_alternatives() {
+    let repo = TestRepo::new();
+    repo.commit_with_intent("ea.txt", "ea\n", "cuz_ea1111", "empty alt test");
+
+    let input = r#"{"tool_input":{"command":"git commit -m 'test'"}}"#;
+    let (stdout, _stderr, success) = run_cuz_with_stdin(repo.path(), &["verify"], input);
+    assert!(success);
+    assert!(stdout.contains("WARNING"), "Should warn about empty alternatives: {}", stdout);
+    assert!(stdout.contains("no rejected alternatives"), "Expected empty-alt warning: {}", stdout);
+}
+
+// --- Setup tests ---
+
+#[test]
+fn test_setup_project_creates_repo_config() {
+    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("cuz_setup_{}_{}", std::process::id(), id));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    run_in(&dir, "git", &["init"]);
+    run_in(&dir, "git", &["config", "user.email", "test@test.com"]);
+    run_in(&dir, "git", &["config", "user.name", "Test"]);
+    fs::write(dir.join("init.txt"), "init").unwrap();
+    run_in(&dir, "git", &["add", "."]);
+    run_in(&dir, "git", &["commit", "-m", "Initial commit"]);
+
+    let (stdout, _stderr, success) = run_cuz(&dir, &["setup", "--project"]);
+    assert!(success, "setup --project failed: {} {}", stdout, _stderr);
+
+    // Check .mcp.json created in repo
+    assert!(dir.join(".mcp.json").exists(), ".mcp.json not created");
+    let mcp: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(dir.join(".mcp.json")).unwrap()
+    ).unwrap();
+    assert!(mcp["mcpServers"]["cuz"].is_object(), "cuz not in .mcp.json");
+
+    // Check .claude/settings.json created in repo
+    assert!(dir.join(".claude/settings.json").exists(), "settings.json not created");
+    let settings: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(dir.join(".claude/settings.json")).unwrap()
+    ).unwrap();
+    assert!(settings["hooks"]["PreToolUse"].is_array());
+    assert!(settings["hooks"]["PostToolUse"].is_array());
+    assert!(settings["hooks"]["Stop"].is_array());
+
+    // Check .claude/rules/cuz.md created
+    assert!(dir.join(".claude/rules/cuz.md").exists(), "cuz.md rules not created");
+
+    // Check .cuz/ created
+    assert!(dir.join(".cuz/intents").is_dir());
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+// --- Teardown tests ---
+
+#[test]
+fn test_teardown_removes_project_config() {
+    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("cuz_teardown_{}_{}", std::process::id(), id));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    run_in(&dir, "git", &["init"]);
+    run_in(&dir, "git", &["config", "user.email", "test@test.com"]);
+    run_in(&dir, "git", &["config", "user.name", "Test"]);
+    fs::write(dir.join("init.txt"), "init").unwrap();
+    run_in(&dir, "git", &["add", "."]);
+    run_in(&dir, "git", &["commit", "-m", "Initial commit"]);
+
+    // First setup --project
+    let (_, _, success) = run_cuz(&dir, &["setup", "--project"]);
+    assert!(success);
+
+    // Then teardown
+    let (stdout, _stderr, success) = run_cuz(&dir, &["teardown"]);
+    assert!(success, "teardown failed: {} {}", stdout, _stderr);
+
+    // .mcp.json should be removed (was only cuz)
+    assert!(!dir.join(".mcp.json").exists(), ".mcp.json should be removed");
+
+    // .claude/rules/cuz.md should be removed
+    assert!(!dir.join(".claude/rules/cuz.md").exists(), "cuz.md rules should be removed");
+
+    // .cuz/ should still exist
+    assert!(dir.join(".cuz/intents").is_dir(), ".cuz/ should still exist");
+
+    let _ = fs::remove_dir_all(&dir);
 }

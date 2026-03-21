@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -33,6 +34,8 @@ pub struct IntentRecord {
 pub struct Alternative {
     pub option: String,
     pub rejected_because: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub constraints: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +57,22 @@ pub fn find_cuz_dir() -> Result<PathBuf> {
     } else {
         anyhow::bail!(".cuz/ directory not found. Run `cuz setup` first.")
     }
+}
+
+/// Find `.cuz/` or create it if we're in a git repo. Used by MCP tools
+/// so the first `create_intent` call auto-initializes without manual setup.
+pub fn find_or_init_cuz_dir() -> Result<PathBuf> {
+    let root = git::repo_root()?;
+    let cuz_dir = root.join(".cuz");
+    if !cuz_dir.is_dir() {
+        std::fs::create_dir_all(cuz_dir.join("intents"))?;
+        std::fs::create_dir_all(cuz_dir.join("parents"))?;
+        let schema_path = cuz_dir.join("schema.json");
+        if !schema_path.exists() {
+            std::fs::write(&schema_path, r#"{"version": "0.1"}"#)?;
+        }
+    }
+    Ok(cuz_dir)
 }
 
 /// Read and deserialize an intent record from `.cuz/intents/{id}.json`.
@@ -102,6 +121,7 @@ pub fn read_active_parent() -> Result<Option<String>> {
 }
 
 /// Validate that an intent ID matches `cuz_[a-f0-9]{6}`.
+#[allow(dead_code)]
 pub fn validate_intent_id(id: &str) -> bool {
     if !id.starts_with("cuz_") {
         return false;
@@ -146,6 +166,95 @@ pub fn list_parent_intents(cuz_dir: &Path) -> Result<Vec<String>> {
     Ok(ids)
 }
 
+/// Print a single rejected alternative with colored formatting.
+/// `indent` is the leading whitespace (e.g. "  " or "    ").
+pub fn print_alternative(alt: &Alternative, indent: &str) {
+    use colored::Colorize;
+    print!(
+        "{}{} {} — {}",
+        indent,
+        "✗".red(),
+        alt.option.yellow(),
+        alt.rejected_because.dimmed()
+    );
+    if let Some(ref c) = alt.constraints {
+        print!(" [{}]", c.dimmed());
+    }
+    println!();
+}
+
+/// Format a single rejected alternative as plain text (no color, for hooks/JSON output).
+pub fn format_alternative(alt: &Alternative) -> String {
+    let mut line = format!("✗ {} — {}", alt.option, alt.rejected_because);
+    if let Some(ref c) = alt.constraints {
+        line.push_str(&format!(" [{}]", c));
+    }
+    line
+}
+
+/// Find all intents that reference a given file in `files_modified`.
+/// Returns intents sorted by timestamp (newest first).
+pub fn intents_for_file(file: &str) -> Result<Vec<IntentRecord>> {
+    let cuz_dir = find_cuz_dir()?;
+    let ids = list_intents(&cuz_dir)?;
+    let mut matches = Vec::new();
+    for id in &ids {
+        if let Ok(record) = read_intent(id) {
+            if record.files_modified.iter().any(|f| f == file) {
+                matches.push(record);
+            }
+        }
+    }
+    // Sort by timestamp descending (newest first)
+    matches.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    Ok(matches)
+}
+
+/// Create a new intent record: generates ID, writes JSON, returns (id, file_path).
+pub fn create_intent(
+    goal: String,
+    approach: String,
+    alternatives: Vec<Alternative>,
+    files_modified: Vec<String>,
+    context_files: Vec<String>,
+    confidence: Option<f64>,
+) -> Result<(String, PathBuf)> {
+    let cuz_dir = find_or_init_cuz_dir()?;
+    let id = generate_intent_id();
+    let parent = read_active_parent()?;
+    let record = IntentRecord {
+        id: id.clone(),
+        version: "0.1".to_string(),
+        goal,
+        approach,
+        alternatives,
+        context_files,
+        files_modified,
+        confidence,
+        token_cost: None,
+        agent: Some("claude-code".to_string()),
+        model: None,
+        parent_intent: parent,
+        timestamp: Utc::now().to_rfc3339(),
+    };
+    let path = cuz_dir.join("intents").join(format!("{}.json", id));
+    let json = serde_json::to_string_pretty(&record)?;
+    std::fs::write(&path, json)?;
+    Ok((id, path))
+}
+
+/// Generate a random 6-hex-char intent ID.
+fn generate_intent_id() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    // Mix in process ID for uniqueness across concurrent processes
+    let mixed = nanos ^ (std::process::id() as u128);
+    format!("cuz_{:06x}", (mixed & 0xffffff) as u32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,6 +281,7 @@ mod tests {
             alternatives: vec![Alternative {
                 option: "circuit breaker".to_string(),
                 rejected_because: "too complex".to_string(),
+                constraints: Some("requires new dependency".to_string()),
             }],
             context_files: vec!["src/retry.ts".to_string()],
             files_modified: vec!["src/retry.ts".to_string()],

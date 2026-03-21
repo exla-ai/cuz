@@ -49,7 +49,7 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
-    // Check that referenced intent files exist
+    // Check that referenced intent files exist and have alternatives
     for intent_id in &intents {
         if !intent::intent_exists(intent_id) {
             print_warning(&format!(
@@ -57,6 +57,15 @@ pub fn run() -> Result<()> {
                  Please create the intent file and amend the commit to include it.",
                 intent_id, intent_id
             ));
+        } else if let Ok(record) = intent::read_intent(intent_id) {
+            if record.alternatives.is_empty() {
+                print_warning(&format!(
+                    "Intent {} has no rejected alternatives. \
+                     The alternatives field is the most valuable part of intent tracking — \
+                     please document at least one alternative you considered and why you rejected it.",
+                    intent_id
+                ));
+            }
         }
     }
 

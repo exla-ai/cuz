@@ -1,8 +1,11 @@
 pub mod cost;
 pub mod diff;
+pub mod hook;
 pub mod init;
 pub mod log;
+pub mod mcp_serve;
 pub mod parent;
+pub mod rejected;
 pub mod search;
 pub mod setup;
 pub mod show;

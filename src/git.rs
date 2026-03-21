@@ -124,6 +124,7 @@ pub fn commit_message(sha: &str) -> Result<String> {
 }
 
 /// Get the commit subject (first line) for a given SHA.
+#[allow(dead_code)]
 pub fn commit_subject(sha: &str) -> Result<String> {
     let output = Command::new("git")
         .args(["log", "-1", "--format=%s", sha])

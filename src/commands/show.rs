@@ -29,19 +29,15 @@ pub fn run(id: &str, json: bool) -> Result<()> {
 fn print_intent(r: &intent::IntentRecord) {
     println!("{} {}", "Intent:".dimmed(), r.id.cyan());
     println!("{} {}", "Goal:".dimmed(), r.goal.bold());
-    println!("{} {}", "Approach:".dimmed(), r.approach);
 
     if !r.alternatives.is_empty() {
-        println!("{}", "Alternatives considered:".dimmed());
+        println!("{}", "Rejected alternatives:".dimmed());
         for alt in &r.alternatives {
-            println!(
-                "  {} {} — {}",
-                "•".dimmed(),
-                alt.option.yellow(),
-                alt.rejected_because.dimmed()
-            );
+            intent::print_alternative(alt, "  ");
         }
     }
+
+    println!("{} {}", "Approach:".dimmed(), r.approach);
 
     if !r.files_modified.is_empty() {
         println!("{} {}", "Files modified:".dimmed(), r.files_modified.join(", "));

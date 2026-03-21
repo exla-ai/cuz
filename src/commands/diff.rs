@@ -43,12 +43,22 @@ pub fn run(cached: bool) -> Result<()> {
     );
 
     for (intent_id, touched_files) in &file_intents {
-        let goal = intent::read_intent(intent_id)
-            .map(|r| r.goal)
-            .unwrap_or_else(|_| "unknown".to_string());
+        let record = intent::read_intent(intent_id).ok();
+        let goal = record
+            .as_ref()
+            .map(|r| r.goal.as_str())
+            .unwrap_or("unknown");
         println!("{} — {}", intent_id.cyan(), goal.bold());
         for f in touched_files {
             println!("  {}", f.dimmed());
+        }
+        if let Some(ref r) = record {
+            if !r.alternatives.is_empty() {
+                println!("  {}", "Rejected alternatives:".dimmed());
+                for alt in &r.alternatives {
+                    intent::print_alternative(alt, "    ");
+                }
+            }
         }
         println!();
     }

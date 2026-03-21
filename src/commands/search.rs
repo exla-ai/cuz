@@ -45,6 +45,13 @@ pub fn run(query: &str, json: bool) -> Result<()> {
         if record.approach.to_lowercase().contains(&query_lower) {
             println!("  {}", truncate(&record.approach, 80).dimmed());
         }
+        // Highlight which alternative matched
+        for alt in &record.alternatives {
+            let alt_text = format!("{} {}", alt.option, alt.rejected_because).to_lowercase();
+            if alt_text.contains(&query_lower) {
+                intent::print_alternative(alt, "  ");
+            }
+        }
         if !record.files_modified.is_empty() {
             println!("  {}", record.files_modified.join(", ").dimmed());
         }

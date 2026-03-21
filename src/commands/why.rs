@@ -53,21 +53,21 @@ fn parse_target(target: &str) -> Result<(String, u32)> {
 
 fn print_intent(record: &intent::IntentRecord, commit_sha: &str) {
     println!("{} {}", "Intent:".dimmed(), record.id.cyan());
-    println!("{} {}", "Commit:".dimmed(), &commit_sha[..8.min(commit_sha.len())].dimmed());
+    println!(
+        "{} {}",
+        "Commit:".dimmed(),
+        &commit_sha[..8.min(commit_sha.len())].dimmed()
+    );
     println!("{} {}", "Goal:".dimmed(), record.goal.bold());
-    println!("{} {}", "Approach:".dimmed(), record.approach);
 
     if !record.alternatives.is_empty() {
-        println!("{}", "Alternatives considered:".dimmed());
+        println!("{}", "Rejected alternatives:".dimmed());
         for alt in &record.alternatives {
-            println!(
-                "  {} {} — {}",
-                "•".dimmed(),
-                alt.option.yellow(),
-                alt.rejected_because.dimmed()
-            );
+            intent::print_alternative(alt, "  ");
         }
     }
+
+    println!("{} {}", "Approach:".dimmed(), record.approach);
 
     if let Some(conf) = record.confidence {
         let conf_str = format!("{:.0}%", conf * 100.0);

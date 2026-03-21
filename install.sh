@@ -2,7 +2,7 @@
 set -e
 
 REPO="exla-ai/cuz"
-VERSION="v0.1.0"
+VERSION="v0.2.0"
 
 # Detect platform
 OS=$(uname -s)
@@ -64,4 +64,4 @@ echo "Running cuz setup..."
 cuz setup
 
 echo ""
-echo "Done! Run 'cuz status' in any git repo to check tracking."
+echo "Done! Claude Code will now use cuz in every repo."
